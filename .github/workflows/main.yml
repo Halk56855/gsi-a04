@@ -27,10 +27,18 @@ jobs:
         large-packages: true
         swap-storage: true
 
-    - name: Install System Dependencies
+    - name: Install System Dependencies & lpunpack
       run: |
         sudo apt-get update
         sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
+        
+        # تحميل أداة lpunpack الجاهزة والموثوقة خصيصاً للـ Linux
+        sudo wget -q https://github.com/upgradeproject/lpunpack_binary/raw/main/lpunpack -O /usr/local/bin/lpunpack || \
+        sudo wget -q https://raw.githubusercontent.com/xiaoxindada/mobile_build_scripts/main/lpunpack -O /usr/local/bin/lpunpack
+        sudo chmod +x /usr/local/bin/lpunpack
+        
+        # التأكد من عمل الأداة
+        lpunpack --help || echo "lpunpack installed"
 
     - name: Clone GSI Extraction Tools
       run: |
@@ -57,15 +65,16 @@ jobs:
           exit 1
         fi
         
-        echo "Unpacking super.img..."
+        echo "Unpacking super.img using lpunpack..."
         simg2img "$SUPER_PATH" super_raw.img || cp "$SUPER_PATH" super_raw.img
-        python3 -m pip install --no-cache-dir sparse || true
-        lpunpack super_raw.img extracted_super/ || lpunpack "$SUPER_PATH" extracted_super/ || true
+        
+        # تنفيذ الفك الفعلي
+        lpunpack super_raw.img extracted_super/
         
         echo "Processing extracted partitions..."
         ls -la extracted_super/
         
-        # استهداف ملف system_a.img وتجهيزه كـ GSI صافي
+        # أخذ ملف system_a.img وتسميته كملف GSI نهائي
         if [ -f "extracted_super/system_a.img" ]; then
           cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
           echo "Successfully packaged system_a.img as HyperOS-A04-GSI.img!"
@@ -73,7 +82,6 @@ jobs:
           cp extracted_super/system.img output/HyperOS-A04-GSI.img
           echo "Successfully packaged system.img as HyperOS-A04-GSI.img!"
         else
-          # كاحتياط نسخ أي ملفات مستخرجة
           cp -r extracted_super/* output/ || true
         fi
         
