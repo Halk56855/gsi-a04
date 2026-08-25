@@ -6,7 +6,7 @@ on:
       rom_url:
         description: 'Direct URL to MIUI/HyperOS ROM (.zip)'
         required: true
-        default: 'https://bigota.d.miui.com/V14.0.8.0.TMTTRXM/miui_TAPASGlobal_V14.0.8.0.TMTTRXM_72b3887d13_13.0.zip'
+        default: 'https://hugeota.d.miui.com/V816.0.4.0.UMRMIXM/miui_THORGlobal_V816.0.4.0.UMRMIXM_97eb6d0281_14.0.zip'
 
 jobs:
   build:
@@ -19,7 +19,6 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        # تم إزالة الحزم القديمة غير المتوفرة والاعتماد على البديلة الصحيحة
         sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip android-sdk-libsparse-utils
 
     - name: Clone GSI Porter Tool
@@ -32,7 +31,8 @@ jobs:
       run: |
         cd ErfanGSI
         ROM_URL="${{ github.event.inputs.rom_url }}"
-        aria2c -x16 -s16 "$ROM_URL" -d input/
+        # استخدام خيارات إضافية لتحسين التحميل وتجنب انقطاع الاتصال
+        aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
         
         echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
         echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
