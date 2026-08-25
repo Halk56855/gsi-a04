@@ -1,33 +1,52 @@
-name: Build and Patch GSI for Samsung
+name: Build HyperOS GSI for A04
 
 on:
   workflow_dispatch:
     inputs:
-      gsi_url:
-        description: 'Direct URL to the GSI zip/img file'
+      rom_url:
+        description: 'Direct URL to MIUI/HyperOS ROM (.zip)'
         required: true
-        default: 'https://example.com/gsi.img'
+        default: 'https://bigota.d.miui.com/V14.0.8.0.TMTTRXM/miui_TAPASGlobal_V14.0.8.0.TMTTRXM_72b3887d13_13.0.zip'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Environment & Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full python3 wget curl git
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip simg2img img2simg android-sdk-libsparse-utils
 
-      - name: Download and Patch GSI
-        run: |
-          echo "Downloading GSI from ${{ github.event.inputs.gsi_url }}"
-          wget -O input.img.xz "${{ github.event.inputs.gsi_url }}"
-          # هنا يتم إضافة أوامر السكربت لتعديل النظام وحقن باتشات سامسونج
+    - name: Clone GSI Porter Tool
+      run: |
+        git clone --depth=1 https://github.com/erfanoabdi/ErfanGSIs.git ErfanGSI
+        cd ErfanGSI
+        mkdir input output
 
-      - name: Upload Output GSI
-        uses: actions/upload-artifact@v4
-        with:
-          name: Patched-Samsung-GSI
-          path: output.img
+    - name: Download & Optimize ROM
+      run: |
+        cd ErfanGSI
+        # سحب الرابط المباشر الموجود في الـ inputs
+        ROM_URL="${{ github.event.inputs.rom_url }}"
+        aria2c -x16 -s16 "$ROM_URL" -d input/
+        
+        # تخصيص ملفات النظام لتقليل استهلاك المعالج والرام لهاتف A04
+        echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
+        echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
+        echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
+
+    - name: Execute GSI Generation
+      run: |
+        cd ErfanGSI
+        # تحويل الروم إلى GSI بصيغة A/B
+        sudo ./url2GSI.sh input/* Generic A/B
+
+    - name: Upload Finished GSI
+      uses: actions/upload-artifact@v4
+      with:
+        name: HyperOS-GSI-A04
+        path: ErfanGSI/output/*.img
