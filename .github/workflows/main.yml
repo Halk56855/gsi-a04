@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       rom_url:
-        description: 'Direct URL to MIUI/HyperOS ROM (.zip)'
+        description: 'ضع رابط التحميل المباشر لروم HyperOS هنا (.tgz أو .zip)'
         required: true
-        default: 'https://hugeota.d.miui.com/V816.0.4.0.UMRMIXM/miui_THORGlobal_V816.0.4.0.UMRMIXM_97eb6d0281_14.0.zip'
+        default: 'https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/V816.0.5.0.UGRMIXM/blue_global_images_V816.0.5.0.UGRMIXM_20240328.0000.00_14.0_90379c256c.tgz'
 
 jobs:
   build:
@@ -27,16 +27,23 @@ jobs:
         cd ErfanGSI
         mkdir input output
 
-    - name: Download & Optimize ROM
+    - name: Download & Optimize ROM for Galaxy A04
       run: |
         cd ErfanGSI
         ROM_URL="${{ github.event.inputs.rom_url }}"
-        # استخدام خيارات إضافية لتحسين التحميل وتجنب انقطاع الاتصال
+        
+        if [ -z "$ROM_URL" ]; then
+          echo "Error: Please provide a valid direct ROM URL!"
+          exit 1
+        fi
+        
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
         
+        # تحسينات وتعديلات لتعريفات معالج MediaTek والذاكرة لهاتف Samsung A04
         echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
         echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
         echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
+        echo "persist.sys.ui.hw=true" >> build/templates/gsi_system_prop
 
     - name: Execute GSI Generation
       run: |
@@ -46,5 +53,5 @@ jobs:
     - name: Upload Finished GSI
       uses: actions/upload-artifact@v4
       with:
-        name: HyperOS-GSI-A04
+        name: HyperOS-GSI-Samsung-A04
         path: ErfanGSI/output/*.img
