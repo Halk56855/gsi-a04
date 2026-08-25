@@ -32,12 +32,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
         
-        # تثبيت أدوات التعامل مع أقسام super (lpunpack / simg2img) بشكل موثوق
-        sudo apt-get install -y lptools || pip3 install --no-cache-dir android_lptools || true
-        
-        # تحميل أداة lpunpack الرسمية الجاهزة إذا لم تكن متوفرة في المستودعات
+        # تثبيت أداة lpunpack يدوياً لضمان توفرها
         if ! command -v lpunpack &> /dev/null; then
-          echo "Installing lpunpack manually..."
           wget -q https://raw.githubusercontent.com/xiaoxindada/mobile_build_scripts/main/lpunpack -O /usr/local/bin/lpunpack || true
           chmod +x /usr/local/bin/lpunpack || true
         fi
@@ -52,7 +48,7 @@ jobs:
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract super.img & unpack system.img
+    - name: Extract super.img & unpack system partition
       run: |
         echo "Extracting HyperOS firmware package..."
         cd input
@@ -70,19 +66,25 @@ jobs:
         echo "Unpacking super.img using lpunpack..."
         lpunpack "$SUPER_PATH" extracted_super/
         
-        echo "Preparing final GSI image for Galaxy A04..."
-        if [ -f "extracted_super/system.img" ]; then
-          cp extracted_super/system.img output/HyperOS-A04-GSI.img
-        elif [ -f "extracted_super/system_a.img" ]; then
-          cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
-        else
-          cp extracted_super/*.img output/ || true
+        echo "Listing all extracted partition files:"
+        ls -la extracted_super/
+        
+        echo "Copying extracted partitions to output folder..."
+        # نسخ كافة الملفات المستخرجة بغض النظر عن امتدادها لتفادي خطأ عدم التطابق
+        cp -r extracted_super/* output/ || true
+        
+        # إعادة تسمية ملف الـ system إن وجد بدون امتداد ليكون بصيغة img واضحة
+        if [ -f "output/system" ]; then
+          mv output/system output/HyperOS-A04-GSI.img
+        elif [ -f "output/system.img" ]; then
+          mv output/system.img output/HyperOS-A04-GSI.img
         fi
         
+        echo "Final contents of output directory:"
         ls -la output/
 
     - name: Upload Final GSI Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HyperOS-Final-GSI-Samsung-A04
-        path: output/*.img
+        path: output/*
