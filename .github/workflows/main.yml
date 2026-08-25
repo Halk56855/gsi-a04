@@ -1,12 +1,12 @@
-name: Build HyperOS GSI for A04
+name: Build HyperOS/MIUI GSI for A04
 
 on:
   workflow_dispatch:
     inputs:
       rom_url:
-        description: 'ضع رابط التحميل المباشر لروم HyperOS هنا (.tgz أو .zip)'
+        description: 'رابط مباشر لروم MIUI مبني على أندرويد 13 (.zip أو .tgz)'
         required: true
-        default: 'https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/V816.0.5.0.UGRMIXM/blue_global_images_V816.0.5.0.UGRMIXM_20240328.0000.00_14.0_90379c256c.tgz'
+        default: 'https://bigota.d.miui.com/V14.0.8.0.TMTTRXM/miui_TAPASGlobal_V14.0.8.0.TMTTRXM_72b3887d13_13.0.zip'
 
 jobs:
   build:
@@ -39,7 +39,6 @@ jobs:
         
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
         
-        # التأكد من وجود الملف قبل الكتابة لعدم حدوث خطأ No such file
         touch build/templates/gsi_system_prop
         
         # تحسينات وتعديلات لتعريفات معالج MediaTek والذاكرة لهاتف Samsung A04
@@ -56,5 +55,5 @@ jobs:
     - name: Upload Finished GSI
       uses: actions/upload-artifact@v4
       with:
-        name: HyperOS-GSI-Samsung-A04
+        name: MIUI-GSI-Samsung-A04
         path: ErfanGSI/output/*.img
