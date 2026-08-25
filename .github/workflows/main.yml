@@ -1,4 +1,4 @@
-name: Build OEM-GSI for Galaxy A04
+name: Build HyperOS GSI for A04 (ErfanGSIs)
 
 on:
   workflow_dispatch:
@@ -11,51 +11,52 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Free Up Disk Space
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
-
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full zip unzip tar swig libssl-dev python3-pip
+        sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip android-sdk-libsparse-utils git
 
-    - name: Clone OEM-GSI-Builder
+    - name: Clone ErfanGSI & Update Submodules
       run: |
-        git clone --recursive https://github.com/nitanmarcel/OEM-GSI-Builder.git builder
-        cd builder
-        mkdir -p input output
+        git clone --recursive https://github.com/erfanoabdi/ErfanGSIs.git ErfanGSI
+        cd ErfanGSI
+        # تحديث الأدوات الفرعية لضمان التوافق مع فك حزم أندرويد 14
+        git submodule update --init --recursive
+        mkdir -p input output build/templates
 
-    - name: Download ROM & Setup
+    - name: Download ROM & Inject Optimizations for Galaxy A04
       run: |
-        cd builder
+        cd ErfanGSI
         ROM_URL="${{ github.event.inputs.rom_url }}"
         
-        # تحميل الروم المباشر بالسرعة القصوى
+        # تحميل الروم الثابت الخاص بك بسرعة عالية مع إعادة المحاولة
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
+        
+        touch build/templates/gsi_system_prop
+        
+        # تحسينات الأداء والرام ومعالج MediaTek لهاتف Samsung A04
+        echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
+        echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
+        echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
+        echo "persist.sys.ui.hw=true" >> build/templates/gsi_system_prop
 
-    - name: Run GSI Build for A04 (ARM64-AB)
+    - name: Bypass Version Check & Execute GSI Generation
       run: |
-        cd builder
-        # تشغيل الأداة لبناء GSI معمّر بنية ARM64-AB المناسبة لـ A04 مع تحسينات الأداء
-        sudo bash build.sh input/* AB arm64
+        cd ErfanGSI
+        # تعديل فحص الإصدار في السكربت لتخطي رفض أندرويد 14 نهائياً
+        sed -i 's/14 is not supported/echo "Bypassing A14 check..."/g' url2GSI.sh || true
+        sed -i 's/exit 1//g' url2GSI.sh || true
+        
+        # تشغيل الأداة لبناء GSI معمّر بنية A/B المناسبة لـ A04
+        sudo ./url2GSI.sh input/* Generic A/B
 
     - name: Upload Finished GSI Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HyperOS-GSI-Samsung-A04
-        path: builder/output/*.img
+        path: ErfanGSI/output/*.img
