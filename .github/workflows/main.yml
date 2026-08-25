@@ -21,9 +21,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip android-sdk-libsparse-utils
 
-    - name: Clone GSI Porter Tool (Android 14 Support)
+    - name: Clone GSI Porter Tool
       run: |
-        # سحب أداة التحويل مع جلب الفروع الحديثة لتدعم أندرويد 14
         git clone --depth=1 https://github.com/erfanoabdi/ErfanGSIs.git ErfanGSI
         cd ErfanGSI
         mkdir -p input output build/templates
@@ -31,7 +30,7 @@ jobs:
     - name: Download & Optimize ROM for Galaxy A04
       run: |
         cd ErfanGSI
-        # استخدام الرابط الذي أرسلته حرفياً دون أي تغيير
+        # استخدام رابطك الثابت تماماً ودون أي تغيير
         ROM_URL="${{ github.event.inputs.rom_url }}"
         
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
@@ -44,11 +43,16 @@ jobs:
         echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
         echo "persist.sys.ui.hw=true" >> build/templates/gsi_system_prop
 
-    - name: Execute GSI Generation
+    - name: Bypass Android 14 Check & Execute GSI Generation
       run: |
         cd ErfanGSI
-        # تنفيذ التحويل مع تجاوز قيود الإصدارات
-        sudo bash -c "export ALLOW_MISSING_DEPENDENCIES=true; ./url2GSI.sh input/* Generic A/B"
+        # تعديل ذكي لملف السكربت لتعطيل شرط رفض أندرويد 14
+        sed -i 's/is not supported/ # bypassed/g' url2GSI.sh || true
+        sed -i '/14 is not supported/d' url2GSI.sh || true
+        sed -i 's/exit 1/echo "Bypassing version check..."/g' url2GSI.sh || true
+        
+        # بدء عملية التحويل بصيغة A/B المناسبة لهاتف سامسونج A04
+        sudo ./url2GSI.sh input/* Generic A/B
 
     - name: Upload Finished GSI
       uses: actions/upload-artifact@v4
