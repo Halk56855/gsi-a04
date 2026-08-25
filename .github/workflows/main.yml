@@ -25,7 +25,7 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/erfanoabdi/ErfanGSIs.git ErfanGSI
         cd ErfanGSI
-        mkdir input output
+        mkdir -p input output build/templates
 
     - name: Download & Optimize ROM for Galaxy A04
       run: |
@@ -38,6 +38,9 @@ jobs:
         fi
         
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
+        
+        # التأكد من وجود الملف قبل الكتابة لعدم حدوث خطأ No such file
+        touch build/templates/gsi_system_prop
         
         # تحسينات وتعديلات لتعريفات معالج MediaTek والذاكرة لهاتف Samsung A04
         echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
