@@ -1,0 +1,33 @@
+name: Build and Patch GSI for Samsung
+
+on:
+  workflow_dispatch:
+    inputs:
+      gsi_url:
+        description: 'Direct URL to the GSI zip/img file'
+        required: true
+        default: 'https://example.com/gsi.img'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Environment & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full python3 wget curl git
+
+      - name: Download and Patch GSI
+        run: |
+          echo "Downloading GSI from ${{ github.event.inputs.gsi_url }}"
+          wget -O input.img.xz "${{ github.event.inputs.gsi_url }}"
+          # هنا يتم إضافة أوامر السكربت لتعديل النظام وحقن باتشات سامسونج
+
+      - name: Upload Output GSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patched-Samsung-GSI
+          path: output.img
