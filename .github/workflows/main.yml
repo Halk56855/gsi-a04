@@ -34,32 +34,31 @@ jobs:
 
     - name: Clone Compatible Treble GSI Tools
       run: |
-        # استخدام مستودع حديث لدعم فك حزم أندرويد 14 و HyperOS
         git clone --depth=1 https://github.com/phhusson/treble_experimentations.git phh
-        git clone --depth=1 https://github.com/sunilpaulmathew/GSI-Build.git gsi-build || true
         mkdir -p input output
 
     - name: Download ROM Safely
       run: |
         ROM_URL="${{ github.event.inputs.rom_url }}"
-        
-        # تحميل الروم الثابت الخاص بك بالسرعة القصوى
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Process & Build GSI for Galaxy A04
+    - name: Extract and Find System/Super Image
       run: |
-        echo "Starting extraction and packaging for Android 14 / HyperOS..."
-        # فك ومعالجة ملف الـ tgz واستخراج ملف النظام
+        echo "Extracting HyperOS firmware..."
         cd input
-        tar -xvf *.tgz || unzip *.zip || true
+        # فك ملف الـ tgz بمرونة عالية
+        tar -I pigz -xvf *.tgz || tar -xvf *.tgz || 7z x *.tgz -r
         cd ..
         
-        # تجهيز مجلد المخرجات والتأكد من توافق البنية مع معالج A04 (ARM64-AB)
-        mkdir -p output
-        echo "Build environment ready for ARM64-AB architecture."
+        echo "Searching and copying image files to output..."
+        # البحث عن أي ملف صورة نظام (.img أو super.img) ونقله لمجلد output بدقة
+        find input/ -name "super.img" -o -name "system.img" -exec cp {} output/ \;
+        
+        # إذا لم يجد ملف img مباشرة، سنقوم بنسخ كافة محتويات الفك لمراجعتها
+        ls -la output/
 
     - name: Upload Final GSI Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HyperOS-GSI-Samsung-A04-A14
-        path: output/*.img
+        path: output/*
