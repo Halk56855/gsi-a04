@@ -42,23 +42,25 @@ jobs:
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract and Find System/Super Image
+    - name: Extract and Collect MediaTek Images
       run: |
-        echo "Extracting HyperOS firmware..."
+        echo "Extracting HyperOS Fastboot firmware..."
         cd input
-        # فك ملف الـ tgz بمرونة عالية
         tar -I pigz -xvf *.tgz || tar -xvf *.tgz || 7z x *.tgz -r
         cd ..
         
-        echo "Searching and copying image files to output..."
-        # البحث عن أي ملف صورة نظام (.img أو super.img) ونقله لمجلد output بدقة
-        find input/ -name "super.img" -o -name "system.img" -exec cp {} output/ \;
+        echo "Locating and gathering firmware images from MediaTek ROM package..."
+        # البحث عن مجلد images النسقي ونقل كافة ملفات الـ img وملفات النظام بداخله إلى مجلد الـ output
+        find input/ -type d -name "images" -exec cp -r {}/. output/ \;
         
-        # إذا لم يجد ملف img مباشرة، سنقوم بنسخ كافة محتويات الفك لمراجعتها
+        # كطريقة احتياطية: البحث عن أي ملف امتداده .img أو .bin ونقله أيضاً
+        find input/ -name "*.img" -exec cp {} output/ \; || true
+        
+        echo "Contents of output directory:"
         ls -la output/
 
     - name: Upload Final GSI Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: HyperOS-GSI-Samsung-A04-A14
+        name: HyperOS-MTK-Images-Samsung-A04
         path: output/*
