@@ -19,7 +19,8 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip simg2img img2simg android-sdk-libsparse-utils
+        # تم إزالة الحزم القديمة غير المتوفرة والاعتماد على البديلة الصحيحة
+        sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip android-sdk-libsparse-utils
 
     - name: Clone GSI Porter Tool
       run: |
@@ -30,11 +31,9 @@ jobs:
     - name: Download & Optimize ROM
       run: |
         cd ErfanGSI
-        # سحب الرابط المباشر الموجود في الـ inputs
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 "$ROM_URL" -d input/
         
-        # تخصيص ملفات النظام لتقليل استهلاك المعالج والرام لهاتف A04
         echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
         echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
         echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
@@ -42,7 +41,6 @@ jobs:
     - name: Execute GSI Generation
       run: |
         cd ErfanGSI
-        # تحويل الروم إلى GSI بصيغة A/B
         sudo ./url2GSI.sh input/* Generic A/B
 
     - name: Upload Finished GSI
