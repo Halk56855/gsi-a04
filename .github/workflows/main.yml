@@ -1,4 +1,4 @@
-name: Build HyperOS GSI for A04 (Modern A14 Builder)
+name: Build HyperOS GSI for A04 (Final Step)
 
 on:
   workflow_dispatch:
@@ -30,37 +30,52 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
+        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils lptools
 
-    - name: Clone Compatible Treble GSI Tools
+    - name: Clone GSI Extraction Tools
       run: |
         git clone --depth=1 https://github.com/phhusson/treble_experimentations.git phh
-        mkdir -p input output
+        mkdir -p input output extracted_super
 
     - name: Download ROM Safely
       run: |
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract and Collect MediaTek Images
+    - name: Extract super.img & unpack system.img
       run: |
-        echo "Extracting HyperOS Fastboot firmware..."
+        echo "Extracting HyperOS firmware package..."
         cd input
         tar -I pigz -xvf *.tgz || tar -xvf *.tgz || 7z x *.tgz -r
         cd ..
         
-        echo "Locating and gathering firmware images from MediaTek ROM package..."
-        # البحث عن مجلد images النسقي ونقل كافة ملفات الـ img وملفات النظام بداخله إلى مجلد الـ output
-        find input/ -type d -name "images" -exec cp -r {}/. output/ \;
+        echo "Locating super.img..."
+        SUPER_PATH=$(find input/ -name "super.img" | head -n 1)
         
-        # كطريقة احتياطية: البحث عن أي ملف امتداده .img أو .bin ونقله أيضاً
-        find input/ -name "*.img" -exec cp {} output/ \; || true
+        if [ -z "$SUPER_PATH" ]; then
+          echo "Error: super.img not found!"
+          exit 1
+        fi
         
-        echo "Contents of output directory:"
+        echo "Unpacking super.img to extract system partition..."
+        # استخدام أداة lpunpack لاستخراج الأقسام الداخلية من super.img
+        lpunpack "$SUPER_PATH" extracted_super/
+        
+        echo "Preparing final GSI image for Galaxy A04..."
+        # البحث عن ملف system.img المستخرج ونقله لمجلد output وإعادة تسميته ليكون جاهزاً كـ GSI
+        if [ -f "extracted_super/system.img" ]; then
+          cp extracted_super/system.img output/HyperOS-A04-GSI.img
+        elif [ -f "extracted_super/system_a.img" ]; then
+          cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
+        else
+          # كحل بديل نسخ أي قسم رئيسي متاح
+          cp extracted_super/*.img output/ || true
+        fi
+        
         ls -la output/
 
     - name: Upload Final GSI Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: HyperOS-MTK-Images-Samsung-A04
-        path: output/*
+        name: HyperOS-Final-GSI-Samsung-A04
+        path: output/*.img
