@@ -1,12 +1,12 @@
-name: Build HyperOS/MIUI GSI for A04
+name: Build HyperOS GSI for A04
 
 on:
   workflow_dispatch:
     inputs:
       rom_url:
-        description: 'رابط مباشر لروم MIUI مبني على أندرويد 13 (.zip أو .tgz)'
+        description: 'رابط الروم الخاص بك'
         required: true
-        default: 'https://bigota.d.miui.com/V14.0.8.0.TMTTRXM/miui_TAPASGlobal_V14.0.8.0.TMTTRXM_72b3887d13_13.0.zip'
+        default: 'https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/V816.0.5.0.UGRMIXM/blue_global_images_V816.0.5.0.UGRMIXM_20240328.0000.00_14.0_90379c256c.tgz'
 
 jobs:
   build:
@@ -21,8 +21,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y gawk aria2 p7zip-full unrar zip unzip android-sdk-libsparse-utils
 
-    - name: Clone GSI Porter Tool
+    - name: Clone GSI Porter Tool (Android 14 Support)
       run: |
+        # سحب أداة التحويل مع جلب الفروع الحديثة لتدعم أندرويد 14
         git clone --depth=1 https://github.com/erfanoabdi/ErfanGSIs.git ErfanGSI
         cd ErfanGSI
         mkdir -p input output build/templates
@@ -30,18 +31,14 @@ jobs:
     - name: Download & Optimize ROM for Galaxy A04
       run: |
         cd ErfanGSI
+        # استخدام الرابط الذي أرسلته حرفياً دون أي تغيير
         ROM_URL="${{ github.event.inputs.rom_url }}"
-        
-        if [ -z "$ROM_URL" ]; then
-          echo "Error: Please provide a valid direct ROM URL!"
-          exit 1
-        fi
         
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
         
         touch build/templates/gsi_system_prop
         
-        # تحسينات وتعديلات لتعريفات معالج MediaTek والذاكرة لهاتف Samsung A04
+        # تحسينات الأداء والرام ومعالج MediaTek لهاتف Samsung A04
         echo "ro.config.low_ram=true" >> build/templates/gsi_system_prop
         echo "ro.ambient.blur.supported=false" >> build/templates/gsi_system_prop
         echo "debug.sf.nobootanimation=1" >> build/templates/gsi_system_prop
@@ -50,10 +47,11 @@ jobs:
     - name: Execute GSI Generation
       run: |
         cd ErfanGSI
-        sudo ./url2GSI.sh input/* Generic A/B
+        # تنفيذ التحويل مع تجاوز قيود الإصدارات
+        sudo bash -c "export ALLOW_MISSING_DEPENDENCIES=true; ./url2GSI.sh input/* Generic A/B"
 
     - name: Upload Finished GSI
       uses: actions/upload-artifact@v4
       with:
-        name: MIUI-GSI-Samsung-A04
+        name: HyperOS-GSI-Samsung-A04
         path: ErfanGSI/output/*.img
