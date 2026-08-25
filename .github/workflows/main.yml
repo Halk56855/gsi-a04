@@ -30,13 +30,7 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
-        
-        # تثبيت أداة lpunpack يدوياً لضمان توفرها
-        if ! command -v lpunpack &> /dev/null; then
-          wget -q https://raw.githubusercontent.com/xiaoxindada/mobile_build_scripts/main/lpunpack -O /usr/local/bin/lpunpack || true
-          chmod +x /usr/local/bin/lpunpack || true
-        fi
+        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils python3-setuptools
 
     - name: Clone GSI Extraction Tools
       run: |
@@ -48,7 +42,7 @@ jobs:
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract super.img & unpack system partition
+    - name: Extract super.img & Robust Partition Extraction
       run: |
         echo "Extracting HyperOS firmware package..."
         cd input
@@ -63,17 +57,27 @@ jobs:
           exit 1
         fi
         
-        echo "Unpacking super.img using lpunpack..."
-        lpunpack "$SUPER_PATH" extracted_super/
+        echo "Converting sparse super.img to raw if needed..."
+        simg2img "$SUPER_PATH" super_raw.img || cp "$SUPER_PATH" super_raw.img
         
-        echo "Listing all extracted partition files:"
+        echo "Unpacking super partition using python lpunpack or alternative..."
+        python3 -m pip install --no-cache-dir sparse || true
+        
+        # محاولة الفك باستخدام lpunpack مع مسار الملف الخام أو العادي
+        lpunpack super_raw.img extracted_super/ || lpunpack "$SUPER_PATH" extracted_super/ || true
+        
+        # إذا لم تقم lpunpack بالفك، سنقوم بنسخ ملف super.img الأصلي مباشرة إلى الـ output لتستخرجه يدوياً إن أردت
+        cp "$SUPER_PATH" output/hyperos_super.img
+        
+        echo "Checking extracted contents..."
         ls -la extracted_super/
         
-        echo "Copying extracted partitions to output folder..."
-        # نسخ كافة الملفات المستخرجة بغض النظر عن امتدادها لتفادي خطأ عدم التطابق
-        cp -r extracted_super/* output/ || true
+        # نسخ الأقسام إن وجدت
+        if [ "$(ls -A extracted_super/)" ]; then
+          cp -r extracted_super/* output/
+        fi
         
-        # إعادة تسمية ملف الـ system إن وجد بدون امتداد ليكون بصيغة img واضحة
+        # تسمية ملف النظام إن وجد ليكون بصيغة GSI جاهزة
         if [ -f "output/system" ]; then
           mv output/system output/HyperOS-A04-GSI.img
         elif [ -f "output/system.img" ]; then
