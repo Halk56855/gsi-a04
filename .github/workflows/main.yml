@@ -30,7 +30,7 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils python3-setuptools
+        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
 
     - name: Clone GSI Extraction Tools
       run: |
@@ -42,7 +42,7 @@ jobs:
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract super.img & Robust Partition Extraction
+    - name: Extract super.img & Package GSI Directly
       run: |
         echo "Extracting HyperOS firmware package..."
         cd input
@@ -57,34 +57,26 @@ jobs:
           exit 1
         fi
         
-        echo "Converting sparse super.img to raw if needed..."
+        echo "Unpacking super.img..."
         simg2img "$SUPER_PATH" super_raw.img || cp "$SUPER_PATH" super_raw.img
-        
-        echo "Unpacking super partition using python lpunpack or alternative..."
         python3 -m pip install --no-cache-dir sparse || true
-        
-        # محاولة الفك باستخدام lpunpack مع مسار الملف الخام أو العادي
         lpunpack super_raw.img extracted_super/ || lpunpack "$SUPER_PATH" extracted_super/ || true
         
-        # إذا لم تقم lpunpack بالفك، سنقوم بنسخ ملف super.img الأصلي مباشرة إلى الـ output لتستخرجه يدوياً إن أردت
-        cp "$SUPER_PATH" output/hyperos_super.img
-        
-        echo "Checking extracted contents..."
+        echo "Processing extracted partitions..."
         ls -la extracted_super/
         
-        # نسخ الأقسام إن وجدت
-        if [ "$(ls -A extracted_super/)" ]; then
-          cp -r extracted_super/* output/
+        # استهداف ملف system_a.img وتجهيزه كـ GSI صافي
+        if [ -f "extracted_super/system_a.img" ]; then
+          cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
+          echo "Successfully packaged system_a.img as HyperOS-A04-GSI.img!"
+        elif [ -f "extracted_super/system.img" ]; then
+          cp extracted_super/system.img output/HyperOS-A04-GSI.img
+          echo "Successfully packaged system.img as HyperOS-A04-GSI.img!"
+        else
+          # كاحتياط نسخ أي ملفات مستخرجة
+          cp -r extracted_super/* output/ || true
         fi
         
-        # تسمية ملف النظام إن وجد ليكون بصيغة GSI جاهزة
-        if [ -f "output/system" ]; then
-          mv output/system output/HyperOS-A04-GSI.img
-        elif [ -f "output/system.img" ]; then
-          mv output/system.img output/HyperOS-A04-GSI.img
-        fi
-        
-        echo "Final contents of output directory:"
         ls -la output/
 
     - name: Upload Final GSI Artifact
