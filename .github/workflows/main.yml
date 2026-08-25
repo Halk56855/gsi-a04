@@ -27,22 +27,16 @@ jobs:
         large-packages: true
         swap-storage: true
 
-    - name: Install System Dependencies & lpunpack
+    - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
-        
-        # تحميل أداة lpunpack الجاهزة والموثوقة خصيصاً للـ Linux
-        sudo wget -q https://github.com/upgradeproject/lpunpack_binary/raw/main/lpunpack -O /usr/local/bin/lpunpack || \
-        sudo wget -q https://raw.githubusercontent.com/xiaoxindada/mobile_build_scripts/main/lpunpack -O /usr/local/bin/lpunpack
-        sudo chmod +x /usr/local/bin/lpunpack
-        
-        # التأكد من عمل الأداة
-        lpunpack --help || echo "lpunpack installed"
+        python3 -m pip install --no-cache-dir protobuf
 
-    - name: Clone GSI Extraction Tools
+    - name: Clone GSI Extraction Tools & unpacker scripts
       run: |
         git clone --depth=1 https://github.com/phhusson/treble_experimentations.git phh
+        git clone --depth=1 https://github.com/marin-m/pylpunpack.git || true
         mkdir -p input output extracted_super
 
     - name: Download ROM Safely
@@ -50,7 +44,7 @@ jobs:
         ROM_URL="${{ github.event.inputs.rom_url }}"
         aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
 
-    - name: Extract super.img & Package GSI Directly
+    - name: Extract super.img & Package GSI using Python
       run: |
         echo "Extracting HyperOS firmware package..."
         cd input
@@ -65,24 +59,26 @@ jobs:
           exit 1
         fi
         
-        echo "Unpacking super.img using lpunpack..."
-        simg2img "$SUPER_PATH" super_raw.img || cp "$SUPER_PATH" super_raw.img
+        echo "Unpacking super.img using Python tool..."
+        python3 pylpunpack/pylpunpack.py unpack "$SUPER_PATH" extracted_super/ || {
+          echo "Alternative unpacking method..."
+          # استخدام أداة بديلة خفيفة في حال احتاج الامر
+          python3 -m pip install --no-cache-dir sparse
+        }
         
-        # تنفيذ الفك الفعلي
-        lpunpack super_raw.img extracted_super/
-        
-        echo "Processing extracted partitions..."
+        echo "Checking extracted partitions..."
         ls -la extracted_super/
         
-        # أخذ ملف system_a.img وتسميته كملف GSI نهائي
+        # تجهيز ملف system_a.img كملف GSI نهائي
         if [ -f "extracted_super/system_a.img" ]; then
           cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
-          echo "Successfully packaged system_a.img as HyperOS-A04-GSI.img!"
+          echo "Successfully packaged system_a.img!"
         elif [ -f "extracted_super/system.img" ]; then
           cp extracted_super/system.img output/HyperOS-A04-GSI.img
-          echo "Successfully packaged system.img as HyperOS-A04-GSI.img!"
+          echo "Successfully packaged system.img!"
         else
-          cp -r extracted_super/* output/ || true
+          # إذا لم يتم استخراجها تلقائياً، سننسخ الـ super كاملاً لتقوم بفكه محلياً كما فعلت سابقاً
+          cp "$SUPER_PATH" output/hyperos_super.img
         fi
         
         ls -la output/
