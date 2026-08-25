@@ -30,7 +30,17 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils lptools
+        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
+        
+        # تثبيت أدوات التعامل مع أقسام super (lpunpack / simg2img) بشكل موثوق
+        sudo apt-get install -y lptools || pip3 install --no-cache-dir android_lptools || true
+        
+        # تحميل أداة lpunpack الرسمية الجاهزة إذا لم تكن متوفرة في المستودعات
+        if ! command -v lpunpack &> /dev/null; then
+          echo "Installing lpunpack manually..."
+          wget -q https://raw.githubusercontent.com/xiaoxindada/mobile_build_scripts/main/lpunpack -O /usr/local/bin/lpunpack || true
+          chmod +x /usr/local/bin/lpunpack || true
+        fi
 
     - name: Clone GSI Extraction Tools
       run: |
@@ -57,18 +67,15 @@ jobs:
           exit 1
         fi
         
-        echo "Unpacking super.img to extract system partition..."
-        # استخدام أداة lpunpack لاستخراج الأقسام الداخلية من super.img
+        echo "Unpacking super.img using lpunpack..."
         lpunpack "$SUPER_PATH" extracted_super/
         
         echo "Preparing final GSI image for Galaxy A04..."
-        # البحث عن ملف system.img المستخرج ونقله لمجلد output وإعادة تسميته ليكون جاهزاً كـ GSI
         if [ -f "extracted_super/system.img" ]; then
           cp extracted_super/system.img output/HyperOS-A04-GSI.img
         elif [ -f "extracted_super/system_a.img" ]; then
           cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
         else
-          # كحل بديل نسخ أي قسم رئيسي متاح
           cp extracted_super/*.img output/ || true
         fi
         
