@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Free Disk Space on Runner
+      - name: Free Disk Space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
@@ -28,80 +28,74 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/lib/jvm
 
-      - name: Install Dependencies & Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4
-          
-          # تثبيت أدوات lpunpack و lpmake المعالجة لملفات Super
-          sudo wget https://github.com/phussonn/vendor_hardware_overlay/raw/master/tools/lpunpack -O /usr/local/bin/lpunpack
-          sudo wget https://github.com/phussonn/vendor_hardware_overlay/raw/master/tools/lpmake -O /usr/local/bin/lpmake
-          sudo chmod +x /usr/local/bin/lpunpack /usr/local/bin/lpmake
+          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3
+
+      - name: Setup Dynamic Partition Tools (lpunpack & lpmake)
+        run: |
+          mkdir -p bin
+          # تحميل أدوات otatools المستقرة والجاهزة للعمل على Ubuntu 22.04 / 24.04
+          wget https://github.com/ssut/payload-dumper-go/releases/download/v1.2.2/payload-dumper-go_1.2.2_linux_amd64.tar.gz
+          wget https://github.com/unix3dgasm/lpmake-binary/raw/main/lpmake -O bin/lpmake
+          wget https://github.com/unix3dgasm/lpmake-binary/raw/main/lpunpack -O bin/lpunpack
+          chmod +x bin/lpmake bin/lpunpack
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
       - name: Download A04 Clean ROM and GSI
         run: |
-          echo "=== جاري تحميل ملف الروم من SourceForge ==="
+          echo "=== جاري تحميل ملف الروم ==="
           aria2c -x 16 -s 16 -L 20 -o clean_rom.zip "${{ github.event.inputs.CLEAN_ROM_URL }}"
           
-          echo "=== جاري تحميل ملف AOSP 16 GSI ==="
+          echo "=== جاري تحميل ملف GSI ==="
           aria2c -x 16 -s 16 -L 20 -o gsi_input.img.xz "${{ github.event.inputs.GSI_URL }}"
           
-          echo "=== فك ضغط ملف GSI ==="
+          echo "=== فك ضغط GSI ==="
           xz -d gsi_input.img.xz
 
-      - name: Extract super.img from Clean ROM Archive
+      - name: Extract super.img from Clean ROM
         run: |
           mkdir -p workspace
           unzip clean_rom.zip -d workspace/
           
           cd workspace
-          # البحث عن ملف AP أو ملف super.img داخل أراشيف Odin
           if ls *.tar.md5 1> /dev/null 2>&1 || ls *.tar 1> /dev/null 2>&1; then
             echo "استخراج super.img من أرشيف Odin..."
             tar -xvf *.tar* super.img.lz4 || tar -xvf *.tar* super.img || true
           fi
           
-          # فك ضغط lz4 إن وجد (الخاص بسامسونج)
           if [ -f super.img.lz4 ]; then
             lz4 -d super.img.lz4 super.img
           fi
           
-          # نقل super.img للمسار الرئيسي
           find . -name "super.img" -exec mv {} ../super_input.img \;
           cd ..
 
-      - name: Convert Sparse to Raw & Extract Dynamic Partitions
+      - name: Convert Sparse to Raw & Extract Partitions
         run: |
           # تحويل super إلى Raw
           simg2img super_input.img super_raw.img || mv super_input.img super_raw.img
           
-          # تفكيك أقسام super
           mkdir -p extracted
           lpunpack super_raw.img extracted/
           ls -lh extracted/
 
       - name: Replace system.img with AOSP 16 GSI
         run: |
-          # حذف system.img الأصلي
           rm -f extracted/system.img
-          
-          # تحويل GSI إلى Raw إذا كان بصيغة Sparse ونقله بدلاً من القديم
           simg2img gsi_input.img extracted/system.img || cp gsi_input.img extracted/system.img
-          
-          echo "حجم ملف system.img الجديد (AOSP 16):"
+          echo "حجم system.img الجديد:"
           ls -lh extracted/system.img
 
-      - name: Rebuild Super Image with lpmake
+      - name: Rebuild Super Image
         run: |
-          # حساب أحجام الأقسام تلقائياً
           SYS_SIZE=$(stat -c%s extracted/system.img)
           VEN_SIZE=$(stat -c%s extracted/vendor.img)
           PRD_SIZE=$(stat -c%s extracted/product.img 2>/dev/null || echo 0)
           
-          # حساب المساحة الكلية المطلوبة
           TOTAL_SIZE=$((SYS_SIZE + VEN_SIZE + PRD_SIZE + 104857600))
           
-          # بناء super.img المدمج جديد بصيغة Sparse
           lpmake --metadata-size 65536 \
                  --super-name super \
                  --metadata-slots 2 \
@@ -114,11 +108,11 @@ jobs:
                  --sparse \
                  --output super_gsi_a04.img
 
-      - name: Compress Output for Download
+      - name: Compress Output
         run: |
           tar -cvf super_gsi_a04.tar super_gsi_a04.img
 
-      - name: Upload Finished Super Image
+      - name: Upload Output Artifact
         uses: actions/upload-artifact@v4
         with:
           name: A04-AOSP16-Super-Image
