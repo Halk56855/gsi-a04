@@ -33,13 +33,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3
 
-      - name: Setup Dynamic Partition Tools (lpunpack & lpmake)
+      - name: Setup LP Tools (lpunpack & lpmake)
         run: |
           mkdir -p bin
-          # تحميل أدوات otatools المستقرة والجاهزة للعمل على Ubuntu 22.04 / 24.04
-          wget https://github.com/ssut/payload-dumper-go/releases/download/v1.2.2/payload-dumper-go_1.2.2_linux_amd64.tar.gz
-          wget https://github.com/unix3dgasm/lpmake-binary/raw/main/lpmake -O bin/lpmake
-          wget https://github.com/unix3dgasm/lpmake-binary/raw/main/lpunpack -O bin/lpunpack
+          # تحميل ثنائيات lpunpack و lpmake الموثوقة والمباشرة
+          aria2c -x 8 -s 8 -o bin/lpmake "https://raw.githubusercontent.com/otatools/binaries/main/lpmake" || wget "https://github.com/phhusson/vendor_hardware_overlay/raw/master/tools/lpmake" -O bin/lpmake
+          aria2c -x 8 -s 8 -o bin/lpunpack "https://raw.githubusercontent.com/otatools/binaries/main/lpunpack" || wget "https://github.com/phhusson/vendor_hardware_overlay/raw/master/tools/lpunpack" -O bin/lpunpack
+          
           chmod +x bin/lpmake bin/lpunpack
           echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
