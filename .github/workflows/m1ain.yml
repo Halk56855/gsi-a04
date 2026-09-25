@@ -28,20 +28,13 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/lib/jvm
 
-      - name: Install Dependencies
+      - name: Install Dependencies & LP-Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3
-
-      - name: Setup LP Tools (lpunpack & lpmake)
-        run: |
-          mkdir -p bin
-          # تحميل ثنائيات lpunpack و lpmake الموثوقة والمباشرة
-          aria2c -x 8 -s 8 -o bin/lpmake "https://raw.githubusercontent.com/otatools/binaries/main/lpmake" || wget "https://github.com/phhusson/vendor_hardware_overlay/raw/master/tools/lpmake" -O bin/lpmake
-          aria2c -x 8 -s 8 -o bin/lpunpack "https://raw.githubusercontent.com/otatools/binaries/main/lpunpack" || wget "https://github.com/phhusson/vendor_hardware_overlay/raw/master/tools/lpunpack" -O bin/lpunpack
+          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3 python3-pip
           
-          chmod +x bin/lpmake bin/lpunpack
-          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+          # تثبيت أدوات lpmake و lpunpack مباشرة عبر PyPI
+          python3 -m pip install lp-tools --break-system-packages || python3 -m pip install lp-tools
 
       - name: Download A04 Clean ROM and GSI
         run: |
