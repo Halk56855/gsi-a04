@@ -28,13 +28,20 @@ jobs:
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf /usr/lib/jvm
 
-      - name: Install Dependencies & LP-Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3 python3-pip
+          sudo apt-get install -y android-sdk-libsparse-utils wget unzip aria2 xz-utils tar lz4 python3
+
+      - name: Setup Dynamic Partition Tools (lpunpack & lpmake)
+        run: |
+          # تنزيل الثنائيات المستقرة مباشرة لبيئة Linux 64-bit
+          mkdir -p bin
+          wget https://github.com/mzyy94/lpunpack-and-lpmake-mirror/releases/download/v1.0.0/lpunpack -O bin/lpunpack
+          wget https://github.com/mzyy94/lpunpack-and-lpmake-mirror/releases/download/v1.0.0/lpmake -O bin/lpmake
           
-          # تثبيت أدوات lpmake و lpunpack مباشرة عبر PyPI
-          python3 -m pip install lp-tools --break-system-packages || python3 -m pip install lp-tools
+          chmod +x bin/lpunpack bin/lpmake
+          echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
       - name: Download A04 Clean ROM and GSI
         run: |
