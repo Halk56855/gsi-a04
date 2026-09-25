@@ -35,10 +35,10 @@ jobs:
 
       - name: Setup Dynamic Partition Tools (lpunpack & lpmake)
         run: |
-          # تنزيل الثنائيات المستقرة مباشرة لبيئة Linux 64-bit
           mkdir -p bin
-          wget https://github.com/mzyy94/lpunpack-and-lpmake-mirror/releases/download/v1.0.0/lpunpack -O bin/lpunpack
-          wget https://github.com/mzyy94/lpunpack-and-lpmake-mirror/releases/download/v1.0.0/lpmake -O bin/lpmake
+          # تنزيل أدوات otatools المصنوعة لبيئة Linux x86_64
+          wget https://github.com/TKM-13/android_vendor_extra_tools/raw/main/linux-x86/bin/lpunpack -O bin/lpunpack || aria2c -x 8 -s 8 "https://github.com/lineageos4microg/android_prebuilts_build-tools/raw/master/linux-x86/bin/lpunpack" -o bin/lpunpack
+          wget https://github.com/TKM-13/android_vendor_extra_tools/raw/main/linux-x86/bin/lpmake -O bin/lpmake || aria2c -x 8 -s 8 "https://github.com/lineageos4microg/android_prebuilts_build-tools/raw/master/linux-x86/bin/lpmake" -o bin/lpmake
           
           chmod +x bin/lpunpack bin/lpmake
           echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
