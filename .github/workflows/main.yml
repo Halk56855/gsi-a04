@@ -11,15 +11,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Download and Extract GSI
+    - name: Download and Extract GSI at Max Speed
       run: |
-        echo "Downloading HyperOS GSI from SourceForge..."
-        wget -O gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-14-idkGSI.7z"
+        echo "Installing aria2 for ultra-fast multi-connection download..."
+        sudo apt-get update && sudo apt-get install -y aria2
+        
+        echo "Downloading HyperOS GSI at maximum speed..."
+        # استخدام 16 اتصالاً متزامناً لتحقيق أقصى سرعة ممكنة
+        aria2c -x 16 -s 16 -j 16 -o gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-14-idkGSI.7z"
         
         echo "Extracting the GSI image..."
         7z x gsi.7z
         
-        # إعادة تسمية الملف المستخرج ليتطابق مع اسم النظام الداخلي
         mv HyperOS-AB-14-2026-01-14-idkGSI.img system.img
 
     - name: Mount and Patch
