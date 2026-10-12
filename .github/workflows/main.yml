@@ -1,90 +1,43 @@
-name: Build HyperOS GSI for A04 (Final Step)
+name: Patch HyperOS GSI
 
 on:
   workflow_dispatch:
-    inputs:
-      rom_url:
-        description: 'رابط الروم الثابت الخاص بك'
-        required: true
-        default: 'https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/V816.0.5.0.UGRMIXM/blue_global_images_V816.0.5.0.UGRMIXM_20240328.0000.00_14.0_90379c256c.tgz'
 
 jobs:
-  build:
+  patch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
+  
     steps:
-    - name: Checkout Repository
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Free Up Disk Space
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        large-packages: true
-        swap-storage: true
-
-    - name: Install System Dependencies
+    - name: Download and Extract GSI
       run: |
-        sudo apt-get update
-        sudo apt-get install -y git aria2 p7zip-full unrar zip unzip tar gawk swig libssl-dev python3-pip android-sdk-libsparse-utils
-        python3 -m pip install --no-cache-dir protobuf
+        echo "Downloading HyperOS GSI from SourceForge..."
+        wget -O gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-14-idkGSI.7z"
+        
+        echo "Extracting the GSI image..."
+        7z x gsi.7z
+        
+        # إعادة تسمية الملف المستخرج ليتطابق مع اسم النظام الداخلي
+        mv HyperOS-AB-14-2026-01-14-idkGSI.img system.img
 
-    - name: Clone GSI Extraction Tools & unpacker scripts
+    - name: Mount and Patch
       run: |
-        git clone --depth=1 https://github.com/phhusson/treble_experimentations.git phh
-        git clone --depth=1 https://github.com/marin-m/pylpunpack.git || true
-        mkdir -p input output extracted_super
+        sudo mkdir -p /mnt/hyperui_mount
+        LOOP_DEV=$(sudo losetup --find --show system.img)
+        sudo mount "$LOOP_DEV" /mnt/hyperui_mount
+        
+        echo "Injecting miui-services.jar..."
+        sudo cp -f miui-services.jar /mnt/hyperui_mount/system_ext/framework/miui-services.jar
+        sudo chmod 644 /mnt/hyperui_mount/system_ext/framework/miui-services.jar
+        
+        echo "Unmounting..."
+        sudo umount /mnt/hyperui_mount
+        sudo losetup -D
 
-    - name: Download ROM Safely
-      run: |
-        ROM_URL="${{ github.event.inputs.rom_url }}"
-        aria2c -x16 -s16 --max-tries=5 "$ROM_URL" -d input/
-
-    - name: Extract super.img & Package GSI using Python
-      run: |
-        echo "Extracting HyperOS firmware package..."
-        cd input
-        tar -I pigz -xvf *.tgz || tar -xvf *.tgz || 7z x *.tgz -r
-        cd ..
-        
-        echo "Locating super.img..."
-        SUPER_PATH=$(find input/ -name "super.img" | head -n 1)
-        
-        if [ -z "$SUPER_PATH" ]; then
-          echo "Error: super.img not found!"
-          exit 1
-        fi
-        
-        echo "Unpacking super.img using Python tool..."
-        python3 pylpunpack/pylpunpack.py unpack "$SUPER_PATH" extracted_super/ || {
-          echo "Alternative unpacking method..."
-          # استخدام أداة بديلة خفيفة في حال احتاج الامر
-          python3 -m pip install --no-cache-dir sparse
-        }
-        
-        echo "Checking extracted partitions..."
-        ls -la extracted_super/
-        
-        # تجهيز ملف system_a.img كملف GSI نهائي
-        if [ -f "extracted_super/system_a.img" ]; then
-          cp extracted_super/system_a.img output/HyperOS-A04-GSI.img
-          echo "Successfully packaged system_a.img!"
-        elif [ -f "extracted_super/system.img" ]; then
-          cp extracted_super/system.img output/HyperOS-A04-GSI.img
-          echo "Successfully packaged system.img!"
-        else
-          # إذا لم يتم استخراجها تلقائياً، سننسخ الـ super كاملاً لتقوم بفكه محلياً كما فعلت سابقاً
-          cp "$SUPER_PATH" output/hyperos_super.img
-        fi
-        
-        ls -la output/
-
-    - name: Upload Final GSI Artifact
+    - name: Upload Modified system.img
       uses: actions/upload-artifact@v4
       with:
-        name: HyperOS-Final-GSI-Samsung-A04
-        path: output/*
+        name: patched-system-img
+        path: system.img
