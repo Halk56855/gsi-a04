@@ -1,4 +1,4 @@
-name: Patch HyperOS GSI
+name: Patch HyperOS GSI Exact Command
 
 on:
   workflow_dispatch:
@@ -11,36 +11,24 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Download and Extract GSI at Max Speed
+    - name: Download and Extract GSI
       run: |
-        echo "Installing aria2 for ultra-fast multi-connection download..."
-        sudo apt-get update && sudo apt-get install -y aria2
-        
-        echo "Downloading HyperOS GSI at maximum speed..."
-        # استخدام 16 اتصالاً متزامناً لتحقيق أقصى سرعة ممكنة
+        sudo apt-get update && sudo apt-get install -y aria2 p7zip-full
         aria2c -x 16 -s 16 -j 16 -o gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-14-idkGSI.7z"
-        
-        echo "Extracting the GSI image..."
         7z x gsi.7z
-        
         mv HyperOS-AB-14-2026-01-14-idkGSI.img system.img
 
-    - name: Mount and Patch
+    - name: Apply Your Exact Linux Commands
       run: |
-        sudo mkdir -p /mnt/hyperui_mount
-        LOOP_DEV=$(sudo losetup --find --show system.img)
-        sudo mount "$LOOP_DEV" /mnt/hyperui_mount
-        
-        echo "Injecting miui-services.jar..."
-        sudo cp -f miui-services.jar /mnt/hyperui_mount/system_ext/framework/miui-services.jar
-        sudo chmod 644 /mnt/hyperui_mount/system_ext/framework/miui-services.jar
-        
-        echo "Unmounting..."
-        sudo umount /mnt/hyperui_mount
-        sudo losetup -D
+        mkdir -p ~/hyperui_mount
+        sudo mount -o loop system.img ~/hyperui_mount
+        sudo cp miui-services.jar ~/hyperui_mount/system_ext/framework/
+        sync
+        sudo umount ~/hyperui_mount
 
-    - name: Upload Modified system.img
+    - name: Upload system.img
       uses: actions/upload-artifact@v4
       with:
         name: patched-system-img
         path: system.img
+        compression-level: 0
