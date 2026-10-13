@@ -1,4 +1,4 @@
-name: Patch HyperOS GSI Exact Command
+name: Patch and Compress GSI
 
 on:
   workflow_dispatch:
@@ -18,17 +18,20 @@ jobs:
         7z x gsi.7z
         mv HyperOS-AB-14-2026-01-14-idkGSI.img system.img
 
-    - name: Apply Your Exact Linux Commands
+    - name: Apply Linux Commands & Compress
       run: |
         mkdir -p ~/hyperui_mount
         sudo mount -o loop system.img ~/hyperui_mount
         sudo cp miui-services.jar ~/hyperui_mount/system_ext/framework/
         sync
         sudo umount ~/hyperui_mount
+        
+        # ضغط ملف النظام بـ 7z بأقصى ضغط لتقليل الحجم وسهولة التحميل
+        echo "Compressing system.img..."
+        7z a -t7z -mx=9 patched-system.7z system.img
 
-    - name: Upload system.img
+    - name: Upload Compressed Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: patched-system-img
-        path: system.img
-        compression-level: 0
+        name: patched-system-7z
+        path: patched-system.7z
