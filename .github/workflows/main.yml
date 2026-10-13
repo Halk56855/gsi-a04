@@ -1,11 +1,13 @@
-name: Patch and Compress GSI
+name: Release Patched HyperOS GSI
 
 on:
   workflow_dispatch:
 
 jobs:
-  patch:
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
   
     steps:
     - name: Checkout repository
@@ -26,12 +28,15 @@ jobs:
         sync
         sudo umount ~/hyperui_mount
         
-        # ضغط ملف النظام بـ 7z بأقصى ضغط لتقليل الحجم وسهولة التحميل
         echo "Compressing system.img..."
         7z a -t7z -mx=9 patched-system.7z system.img
 
-    - name: Upload Compressed Artifact
-      uses: actions/upload-artifact@v4
+    - name: Upload to GitHub Releases
+      uses: softprops/action-gh-release@v2
       with:
-        name: patched-system-7z
-        path: patched-system.7z
+        files: patched-system.7z
+        tag_name: v1.4-patched
+        name: HyperOS Patched GSI 2026
+        body: "HyperOS GSI patched with miui-services.jar successfully via Linux mount command."
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
