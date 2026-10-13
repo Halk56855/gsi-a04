@@ -15,16 +15,31 @@ jobs:
 
     - name: Download and Extract GSI
       run: |
-        sudo apt-get update && sudo apt-get install -y aria2 p7zip-full
+        sudo apt-get update && sudo apt-get install -y aria2 p7zip-full xz-utils
         aria2c -x 16 -s 16 -j 16 -o gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-14-idkGSI.7z"
         7z x gsi.7z
         mv HyperOS-AB-14-2026-01-14-idkGSI.img system.img
 
-    - name: Apply Linux Commands & Compress
+    - name: Prepare MiuiHome APK
+      run: |
+        if [ -f "MiuiHome.apk.xz" ]; then
+          xz -d -k MiuiHome.apk.xz
+        fi
+
+    - name: Apply Linux Patch Commands
       run: |
         mkdir -p ~/hyperui_mount
         sudo mount -o loop system.img ~/hyperui_mount
+        
+        # 1. حقن miui-services.jar
         sudo cp miui-services.jar ~/hyperui_mount/system_ext/framework/
+        sudo chmod 644 ~/hyperui_mount/system_ext/framework/miui-services.jar
+        
+        # 2. استبدال وحقن MiuiHome.apk
+        sudo mkdir -p ~/hyperui_mount/product/priv-app/MiuiHome
+        sudo cp MiuiHome.apk ~/hyperui_mount/product/priv-app/MiuiHome/MiuiHome.apk
+        sudo chmod 644 ~/hyperui_mount/product/priv-app/MiuiHome/MiuiHome.apk
+        
         sync
         sudo umount ~/hyperui_mount
         
@@ -37,6 +52,6 @@ jobs:
         files: HyperUI-2.7z
         tag_name: HyperUI-2
         name: HyperUI 2
-        body: "HyperOS GSI patched with miui-services.jar successfully under the name HyperUI 2."
+        body: "HyperOS GSI patched with miui-services.jar and fixed MiuiHome.apk under the name HyperUI 2."
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
