@@ -1,4 +1,4 @@
-name: Release Patched HyperOS GSI
+name: Release HyperUI 2 Patched GSI
 
 on:
   workflow_dispatch:
@@ -28,15 +28,15 @@ jobs:
         sync
         sudo umount ~/hyperui_mount
         
-        echo "Compressing system.img..."
-        7z a -t7z -mx=9 patched-system.7z system.img
+        echo "Compressing system.img to HyperUI-2.7z..."
+        7z a -t7z -mx=9 HyperUI-2.7z system.img
 
     - name: Upload to GitHub Releases
       uses: softprops/action-gh-release@v2
       with:
-        files: patched-system.7z
-        tag_name: v1.4-patched
-        name: HyperOS Patched GSI 2026
-        body: "HyperOS GSI patched with miui-services.jar successfully via Linux mount command."
+        files: HyperUI-2.7z
+        tag_name: HyperUI-2
+        name: HyperUI 2
+        body: "HyperOS GSI patched with miui-services.jar successfully under the name HyperUI 2."
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
