@@ -1,0 +1,57 @@
+name: Release HyperOS 3 Patched GSI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+  
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download and Extract HyperOS 3 GSI
+      run: |
+        sudo apt-get update && sudo apt-get install -y aria2 p7zip-full xz-utils
+        aria2c -x 16 -s 16 -j 16 -o gsi.7z "https://downloads.sourceforge.net/project/idkgsiupdate/HyperOS/HyperOS-AB-14-2026-01-10-idkGSI.7z"
+        7z x gsi.7z
+        mv *.img system.img
+
+    - name: Prepare MiuiHome APK
+      run: |
+        if [ -f "MiuiHome.apk.xz" ]; then
+          xz -d -k MiuiHome.apk.xz
+        fi
+
+    - name: Apply Linux Patch Commands
+      run: |
+        mkdir -p ~/hyperos_mount
+        sudo mount -o loop system.img ~/hyperos_mount
+        
+        # 1. حقن miui-services.jar
+        sudo cp miui-services.jar ~/hyperos_mount/system_ext/framework/
+        sudo chmod 644 ~/hyperos_mount/system_ext/framework/miui-services.jar
+        
+        # 2. استبدال وحقن MiuiHome.apk
+        sudo mkdir -p ~/hyperos_mount/product/priv-app/MiuiHome
+        sudo cp MiuiHome.apk ~/hyperos_mount/product/priv-app/MiuiHome/MiuiHome.apk
+        sudo chmod 644 ~/hyperos_mount/product/priv-app/MiuiHome/MiuiHome.apk
+        
+        sync
+        sudo umount ~/hyperos_mount
+        
+        echo "Compressing system.img to HyperOS-3.7z..."
+        7z a -t7z -mx=9 HyperOS-3.7z system.img
+
+    - name: Upload to GitHub Releases
+      uses: softprops/action-gh-release@v2
+      with:
+        files: HyperOS-3.7z
+        tag_name: HyperOS-3
+        name: HyperOS 3
+        body: "HyperOS 3 GSI patched with miui-services.jar and fixed MiuiHome.apk successfully."
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
